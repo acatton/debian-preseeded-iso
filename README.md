@@ -13,7 +13,7 @@ Quickstart
 ----------
 
 ~~~
-$ wget "http://cdimage.debian.org/debian-cd/8.1.0/amd64/iso-cd/debian-8.1.0-amd64-netinst.iso" -O debian.iso
+$ aria2c -x2 "http://cdimage.debian.org/debian-cd/8.1.0/amd64/iso-cd/debian-8.1.0-amd64-netinst.iso" -o debian.iso
 $ cp preseed.example.cfg preseed.cfg
 $ ./build.sh
 ~~~
