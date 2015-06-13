@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2000 Your Name <your@address>
+# This work is free. You can redistribute it and/or modify it under the
+# terms of the Do What The Fuck You Want To Public License, Version 2,
+# as published by Sam Hocevar. See the LICENSE file for more details.
 
 # It's impossible to specify more than two option in the shebang
 # Otherwise I would've put #!/usr/bin/env bash -e
