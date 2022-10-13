@@ -32,3 +32,7 @@ Bugs
 ----
 
 Report issues to this git repository
+
+Notes
+-----
+- 2022-10-13 - Support for UEFI & USB boot
