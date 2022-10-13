@@ -3,33 +3,41 @@
 # This work is free. You can redistribute it and/or modify it under the
 # terms of the Do What The Fuck You Want To Public License, Version 2,
 # as published by Sam Hocevar. See the LICENSE file for more details.
+#
+# Updated to add hybrid boot & UEFI by an Internet citizen
+#
+set -eu
+declare -r ISOLINUX_HYBRID_BIN=/usr/lib/ISOLINUX/isohdpfx.bin
 
-# It's impossible to specify more than two option in the shebang
-# Otherwise I would've put #!/usr/bin/env bash -e
-set -e
-
-which 7z > /dev/null || {
+command -v 7z > /dev/null || {
     echo "You need to install 7z:"
-    echo "  * For Fedora: dnf install p7zip-plugins"
-    echo "  * For Debian: apt-get install p7zip-full"
+    echo "  * For Fedora: sudo dnf install p7zip-plugins"
+    echo "  * For Debian: sudo apt-get install p7zip-full"
     exit 127
 } > /dev/stderr
 
-which genisoimage > /dev/null || {
-    echo "You need to install genisoimage:"
-    echo "  * For Fedora: dnf install genisoimage"
-    echo "  * For Debian: apt-get install genisoimage"
+command -v xorriso > /dev/null || {
+    echo "You need to install xorriso:"
+    echo "  * For Fedora: sudo dnf install xorriso"
+    echo "  * For Debian: sudo apt-get install xorriso"
     exit 127
 } > /dev/stderr
 
-if [ "$1" = "--help" ] || [ "$1" = "-h" ]
+[ -f "$ISOLINUX_HYBRID_BIN" ] || {
+    echo "You need to install isolinux:"
+    echo "  * For Fedora: sudo dnf install isolinux"
+    echo "  * For Debian: sudo apt-get install isolinux"
+    exit 127
+} > /dev/stderr
+
+if [ $# -lt 2 ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]
 then
     echo "Usage: $0 [debian.iso [debian-preseeded.iso [preseed.cfg]]]"
 fi
 
-SOURCE="${1:-debian.iso}"
-DEST="${2:-debian-preseeded.iso}"
-PRESEED="${3:-preseed.cfg}"
+declare -r SOURCE="${1:-debian.iso}"
+declare -r DEST="${2:-debian-preseeded.iso}"
+declare -r PRESEED="${3:-preseed.cfg}"
 
 
 if [ ! -f "$SOURCE" ]
@@ -50,7 +58,9 @@ then
     exit 127
 fi
 
-TMP="$(mktemp -d)"
+declare -r TMP="$(mktemp -d)"
+echo USING $TMP ...
+trap "rm -rf '$TMP'" EXIT ERR
 
 echo "Extracting the iso..."
 7z x -o"$TMP" "$SOURCE" > /dev/null
@@ -63,7 +73,7 @@ echo "Update isolinux config..."
 # Replace timeout 0 by timeout 1 to quickly launch the installer
 sed -i -e 's/^timeout .*$/timeout 1/' isolinux/isolinux.cfg
 # Replace append preseed/file=/cdrom/preseed.cfg to the kernel command line
-#sed -i -e 's/^\(\s\+append .*\)\(---\)/\1preseed\/file=\/cdrom\/preseed.cfg \2/' isolinux/txt.cfg
+# sed -i -e 's/^\(\s\+append .*\)\(---\)/\1preseed\/file=\/cdrom\/preseed.cfg \2/' isolinux/txt.cfg
 sed -i -e 's/^\(\s\+append .*\)\(---\)/\1auto=true file=\/cdrom\/preseed.cfg \2/' isolinux/txt.cfg
 
 echo "Update the checksums..."
@@ -71,10 +81,18 @@ find -follow -type f -print0 | xargs --null md5sum > md5sum.txt
 popd > /dev/null
 
 echo "Generate the iso..."
-genisoimage -o "$DEST" -r -J -quiet -no-emul-boot -boot-load-size 4 \
-    -boot-info-table -b isolinux/isolinux.bin -c isolinux/boot.cat "$TMP"
+xorriso -as mkisofs \
+    -isohybrid-mbr "$ISOLINUX_HYBRID_BIN" \
+    -c isolinux/boot.cat \
+    -b isolinux/isolinux.bin \
+    -no-emul-boot \
+    -boot-load-size 4 \
+    -boot-info-table \
+    -eltorito-alt-boot \
+    -e boot/grub/efi.img \
+    -no-emul-boot \
+    -isohybrid-gpt-basdat \
+    -o "$DEST" \
+    "$TMP"
 
-echo "Removing the temporary directory..."
-rm -rf "$TMP"
-
-echo "Done..."
+echo "Done, implicitly cleaning up $TMP ..."
